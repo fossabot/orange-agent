@@ -7,3 +7,13 @@
 
 # orange-agent
 Java Code Coverage Agent 
+
+### Copyright and license
+
+Copyright © 2019 Wen Hao
+
+Licensed under [MIT License]
+
+[MIT License]: ./LICENSE
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fwenhao%2Forange-agent.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fwenhao%2Forange-agent?ref=badge_large)
