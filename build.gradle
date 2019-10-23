@@ -1,0 +1,227 @@
+plugins {
+    id 'java-library'
+    id "com.jfrog.bintray" version "1.8.4"
+    id 'idea'
+    id 'net.ltgt.apt' version '0.21'
+    id 'maven'
+    id 'maven-publish'
+    id 'signing'
+    id 'jacoco'
+    id 'checkstyle'
+    id "com.github.hierynomus.license" version "0.15.0"
+    id "org.sonarqube" version "2.7.1"
+}
+
+group = 'com.github.wenhao'
+version = '1.0.0-SNAPSHOT'
+
+idea {
+    project {
+        vcs = 'Git'
+    }
+    module {
+        jdkName = '1.8'
+    }
+}
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    implementation 'com.google.guava:guava:27.1-jre'
+
+    testImplementation 'junit:junit:4.12'
+
+    task sourcesJar(type: Jar) {
+        from sourceSets.main.allSource
+        classifier = 'sources'
+    }
+
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+        classifier = 'javadoc'
+        from javadoc.destinationDir
+    }
+
+    artifacts {
+        archives jar
+        archives sourcesJar
+        archives javadocJar
+    }
+
+    ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+
+    signing {
+        required { isReleaseVersion && gradle.taskGraph.hasTask("uploadArchives") }
+        sign configurations.archives
+    }
+}
+
+checkstyle {
+    toolVersion '8.1'
+    ignoreFailures = false
+    configFile file("$project.rootDir/config/checkstyle/checkstyle.xml")
+    sourceSets = [sourceSets.main]
+
+    checkstyleMain {
+        source = 'src/main/java'
+    }
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+        html.enabled true
+        csv.enabled false
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.8
+            }
+        }
+
+        rule {
+            enabled = true
+            element = 'PACKAGE'
+            includes = ['com.*']
+
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.8
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.8
+            }
+            limit {
+                counter = 'METHOD'
+                value = 'COVEREDRATIO'
+                minimum = 0.8
+            }
+            limit {
+                counter = 'CLASS'
+                value = 'COVEREDRATIO'
+                minimum = 0.8
+            }
+        }
+    }
+    dependsOn(jacocoTestReport)
+}
+
+license {
+    header rootProject.file('config/copyright/copyright.header')
+    excludes(["**/*.properties"])
+    strictCheck true
+}
+
+check.dependsOn jacocoTestCoverageVerification
+check.dependsOn licenseFormat
+
+sonarqube {
+    properties {
+        property "sonar.projectName", "Java Code Coverage Agent."
+        property "sonar.projectKey", "wenhao_orange-agent"
+    }
+}
+
+def pomConfig = {
+    licenses {
+        license {
+            name 'MIT License'
+            url 'http://www.opensource.org/licenses/mit-license.php'
+            distribution 'repo'
+        }
+    }
+
+    scm {
+        url 'https://github.com/wenhao/orange-agent'
+        connection 'https://github.com/wenhao/orange-agent.git'
+        developerConnection 'git@github.com:wenhao/orange-agent.git'
+    }
+
+    developers {
+        developer {
+            id 'wenhao'
+            name 'Hao Wen'
+            email 'wenhao@126.com'
+            organization 'Hao Wen'
+            roles {
+                role 'Developer'
+            }
+        }
+    }
+
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+            groupId 'com.github.wenhao'
+            artifactId 'orange-agent'
+            version '1.0.0-SNAPSHOT'
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', 'Java Code Coverage Agent.')
+                root.appendNode('name', 'orange-agent')
+                root.appendNode('url', 'https://github.com/wenhao/orange-agent')
+                root.appendNode('inceptionYear', '2019')
+                root.children().last() + pomConfig
+            }
+        }
+    }
+}
+
+// publish to jcenter
+bintray {
+    user = project.hasProperty('bintrayUser') ? project.property('bintrayUser') : System.getenv('BINTRAY_USER')
+    key = project.hasProperty('bintrayApiKey') ? project.property('bintrayApiKey') : System.getenv('BINTRAY_API_KEY')
+    configurations = ['archives']
+    publications = ['maven']
+    dryRun = false
+    publish = true
+    override = false
+    pkg {
+        repo = 'maven'
+        name = 'orange-agent'
+        desc = 'Java Code Coverage Agent'
+        licenses = ['MIT']
+        websiteUrl = 'https://github.com/wenhao/orange-agent'
+        issueTrackerUrl = 'https://github.com/wenhao/orange-agent/issues'
+        vcsUrl = 'https://github.com/wenhao/orange-agent'
+        labels = ['coverage', 'test coverage']
+        publicDownloadNumbers = true
+        githubRepo = 'wenhao/orange-agent'
+        githubReleaseNotesFile = 'README.md'
+        version {
+            name = '1.0.0-SNAPSHOT'
+            desc = 'Java Code Coverage Agent 1.0.0-SNAPSHOT'
+            released = new Date()
+            vcsTag = '1.0.0-SNAPSHOT'
+            gpg {
+                sign = true
+                passphrase = 'passphrase'
+            }
+            mavenCentralSync {
+                sync = true
+                user = project.hasProperty('sonatypeUsername')
+                password = project.hasProperty('sonatypePassword')
+                close = '1'
+            }
+        }
+    }
+}
+
+copy {
+    from "./config/githooks/"
+    into "./.git/hooks/"
+    fileMode 0755
+}
